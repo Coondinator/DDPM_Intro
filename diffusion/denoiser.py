@@ -2,7 +2,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
+from .embedding import PositionalEmbedding
 from torch.nn.modules.normalization import GroupNorm
 
 
@@ -17,34 +17,6 @@ def get_norm(norm, num_channels, num_groups):
         return nn.Identity()
     else:
         raise ValueError("unknown normalization type")
-
-
-class PositionalEmbedding(nn.Module):
-    __doc__ = r"""Computes a positional embedding of timesteps.
-
-    Input:
-        x: tensor of shape (N)
-    Output:
-        tensor of shape (N, dim)
-    Args:
-        dim (int): embedding dimension
-        scale (float): linear scale to be applied to timesteps. Default: 1.0
-    """
-
-    def __init__(self, dim, scale=1.0):
-        super().__init__()
-        assert dim % 2 == 0
-        self.dim = dim
-        self.scale = scale
-
-    def forward(self, x):
-        device = x.device
-        half_dim = self.dim // 2
-        emb = math.log(10000) / half_dim
-        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
-        emb = torch.outer(x * self.scale, emb)
-        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
-        return emb
 
 
 class Downsample(nn.Module):
@@ -242,7 +214,7 @@ class UNet(nn.Module):
             img_channels,
             base_channels,
             channel_mults=(1, 2, 4, 8),
-            num_res_blocks=2,
+            num_res_blocks=1,
             time_emb_dim=None,
             time_emb_scale=1.0,
             num_classes=None,

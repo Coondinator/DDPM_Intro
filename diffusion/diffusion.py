@@ -4,42 +4,37 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from copy import deepcopy
-from .argument import Arguments
 from functools import partial
-from argparse import ArgumentParser
 
-class NLDM(nn.Module):
 
-    def __init__(self, config_file, model, betas):
+class GaussianModel(nn.Module):
+
+    def __init__(self, model, img_size, img_channel, betas, loss_type):
         super().__init__()
 
-
-
-        args = Arguments('./Model_MLP', filename=config_file)
-        self.seed = args.seed
-        self.latent_size = args.latent_size
-        self.latent_channel = args.latent_channel
+        self.seed = 1
+        self.img_size = img_size
+        self.img_channel = img_channel
         self.model = model
 
         self.step = 0
 
-        if args.loss_type not in ["l1", "l2"]:
+        if loss_type not in ["l1", "l2"]:
             raise ValueError("__init__() got unknown loss type")
-        self.loss_type = args.loss_type
+        self.loss_type = loss_type
 
         #self.latent_chanel = args.latent_channel
         self.num_timesteps = len(betas)
 
+        #保存加噪去噪过程中所需要的参数
         alphas = 1.0 - betas
-        alphas_cumprod = np.cumprod(alphas)  # 累乘
+        alphas_cumprod = np.cumprod(alphas)  # alphas累乘
 
-        to_torch = partial(torch.tensor, dtype=torch.float32)  # partial?
+        to_torch = partial(torch.tensor, dtype=torch.float32)  #
 
         self.register_buffer("beta", to_torch(betas))  # variable in buffer is fixed
         self.register_buffer("alphas", to_torch(alphas))
         self.register_buffer("alphas_cumprod", to_torch(alphas_cumprod))
-
         self.register_buffer("sqrt_alphas_cumprod", to_torch(np.sqrt(alphas_cumprod)))
         self.register_buffer("sqrt_one_minus_alphas_cumprod", to_torch(np.sqrt(1 - alphas_cumprod)))
         self.register_buffer("reciprocal_sqrt_alphas", to_torch(np.sqrt(1 / alphas)))
@@ -47,49 +42,48 @@ class NLDM(nn.Module):
         self.register_buffer("remove_noise_coeff", to_torch(betas / np.sqrt(1 - alphas_cumprod)))
         self.register_buffer("sigma", to_torch(np.sqrt(betas)))
 
-    def forward(self, latent, y=None):
-        b, w = latent.shape # b:batch, w: 2560
+    # 前向过程, 让denoiser去噪
+    def forward(self, x, y=None):
+        b, c, h, w = x.shape
+        device = x.device
 
-        device = latent.device
-        if w != self.latent_size:
-            raise ValueError("latent length does not match diffusion parameters")
+        if h != self.img_size[0]:
+            raise ValueError("image height does not match diffusion parameters")
+        if w != self.img_size[0]:
+            raise ValueError("image width does not match diffusion parameters")
+
+        t = torch.randint(0, self.num_timesteps, (b,), device=device)
+        return self.get_losses(x, t, y)
+
+
+    def get_losses(self, x, t, y):
         torch.manual_seed(self.seed)
         self.seed += 1
-        t = torch.randint(0, self.num_timesteps, (b,), device=device)  #randomly generate t between[0, num_timesteps) with batch numbers
 
-        return self.get_losses(latent, t, y)
+        noise = torch.randn_like(x)  # generateing a noise with latent‘s shape
 
-
-    def get_losses(self, latent, t, y):
-        torch.manual_seed(self.seed)
-        self.seed += 1
-
-        noise = torch.randn_like(latent)  # generateing a noise with latent‘s shape
-        # batch, 1, 2560
-        perturbed_latent = self.add_noise(latent, t, noise)  # add noise
-
-        # batch, 1, 2560
-        estimated_noise = self.model(perturbed_latent, t, y)  # estimate noise
+        perturbed_x = self.add_noise(x, t, noise)  # add noise
+        estimated_noise = self.model(perturbed_x, t, y)  # estimate noise
 
         # self.sample(estimated_noise.shape[0],estimated_noise.device)
-        # 256, 1, 2560
 
+        #这里也可以改成直接预测x0
         if self.loss_type == "l1":
-            # loss = F.l1_loss(estimated_noise, noise)
-            loss = F.l1_loss(estimated_noise, latent)
+            loss = F.l1_loss(estimated_noise, noise)
+            # loss = F.l1_loss(estimated_noise, x)
         elif self.loss_type == "l2":
-            # loss = F.mse_loss(estimated_noise, noise)
-            loss = F.mse_loss(estimated_noise, latent)
+            loss = F.mse_loss(estimated_noise, noise)
+            # loss = F.mse_loss(estimated_noise, x)
         return loss
 
-    def add_noise(self, latent, t, noise):
-        out = extract(self.sqrt_alphas_cumprod, t, latent.shape) * latent + extract(self.sqrt_one_minus_alphas_cumprod,
-                                                                                    t, latent.shape) * noise
+    def add_noise(self, x, t, noise):
+        out = extract(self.sqrt_alphas_cumprod, t, x.shape) * x + extract(self.sqrt_one_minus_alphas_cumprod,
+                                                                                    t, x.shape) * noise
         return out
 
-    def remove_noise(self, latent, t, y, use_ema=True):
-        output = ((latent - extract(self.remove_noise_coeff, t, latent.shape) * self.model(latent, t, y)) *
-                extract(self.reciprocal_sqrt_alphas, t, latent.shape))
+    def remove_noise(self, x, t, y):
+        output = ((x - extract(self.remove_noise_coeff, t, x.shape) * self.model(x, t, y)) *
+                extract(self.reciprocal_sqrt_alphas, t, x.shape))
 
         return output
 
@@ -132,6 +126,12 @@ class NLDM(nn.Module):
 
 
 def generate_linear_schedule(T, low, high):
+    """
+    :param T: 一共的加噪步数
+    :param low: 最低的t
+    :param high: 最高的t
+    :return: 给每个batch添加不同的t
+    """
     print("generate_linear_schedule")
     beta = np.linspace(low * 1000 / T, high * 1000 / T, T)
     return beta
