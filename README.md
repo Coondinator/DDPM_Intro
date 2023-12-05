@@ -52,11 +52,13 @@ $\tilde{Z}=Denoiser(x_{t},t)\quad z\sim N(0,1)$
 
 T：TimeStep, 代表加噪去噪的总次数
 
-Beta：所加噪声的方差
+betas：所加噪声的方差 $\beta$
 
-Alpha：1-Beta
+alphas：$1-\beta$
 
-同时，diffusion模型有三种不同的预测方式，一种是预测所加t步的噪声，一种是预测 $x_{0}$ 的原始图像， 还有一种是预测得分（梯度）
+alphas_cumprod：$\bar{\alpha_{t}}$
+
+同时，diffusion模型有三种不同的预测方式，一种是预测所加t步的噪声，一种是预测 $x_{0}$ 的原始图像， 还有一种是预测得分（梯度），主要使用的是前两种。
 ## Denoiser模块
 
 
