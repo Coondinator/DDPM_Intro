@@ -32,12 +32,13 @@ $x_{t}=\sqrt{\alpha_{t}\alpha_{t-1}}x_{t-2}+\sqrt{\alpha_{t}-\alpha_{t}\alpha_{t
 
 所以: $x_{t}=\sqrt{\alpha_{t}\alpha_{t-1}}x_{t-2}+\sqrt{1-\alpha_{t}\alpha_{t-1}}z$, 根据数学归纳法:
 
-$x_{t}=\sqrt{\bar{\alpha_{t}}}x_{0}+\sqrt{1-\bar{\alpha_{t}}}z$
+$x_{t}=\sqrt{\bar{\alpha}_{t}}x_{0}+\sqrt{1-\bar{\alpha}_{t}}z$
 
-每个时刻的噪声图(加噪信号)均可由 $x_{0}$ , $t$ 和 $z$ 表示。；在训练阶段，模型会给每个数据添加不同t时刻的噪声图，而去噪网络则会基于t和加噪后信号尝试去还原原始的信号或者添加的噪声亦是噪声的分布。
+每个时刻的噪声图(加噪信号)均可由 $x_{0}$ , $t$ 和 $z$ 表示。在训练阶段，模型会给每个数据添加不同t时刻的噪声图，而去噪网络则会基于t和加噪后信号尝试去还原原始的信号或者添加的噪声亦是噪声的分布。
 ## 后向阶段实现(后向)
 在推理或者说是采样阶段，就是从一个完全高斯噪声中一步一步恢复图像信号的过程
 
-$x_{t-1}=
+$x_{t-1}= \frac{1}{\sqrt{\alpha_{t}}} (x_{t}-\frac{\beta_{t}}{\sqrt{1-\bar{\alpha_{t}}}}\tilde{Z})+\frac{1-\bar{\alpha}_{t-1}}{1-\bar{\alpha}_{t}}z$
 
+$\tilde{Z}=Denoiser(x_{t},t)\quad z\sim N(0,1)$
 # 狗狗十分钟也能学会的扩散模型教程-代码篇
