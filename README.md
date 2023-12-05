@@ -46,7 +46,7 @@ $\tilde{Z}=Denoiser(x_{t},t)\quad z\sim N(0,1)$
 
 1. 模型的加噪去噪的Scheduler，以及去噪过后的loss函数
 
-3. 去噪网络Denoiser
+3. 去噪网络Denoiser，通常是UNet, 如今也有Transformer_based的出现
 ## Noise Scheduler模块
 这一部分主要写在了Diffusion Class内部，包含了一下几个参数：
 
@@ -58,7 +58,17 @@ alphas： $1-\beta$
 
 alphas_cumprod： $\bar{\alpha_{t}}$
 
+sqrt_alphas_cumprod
+
+sqrt_one_minus_alphas_cumprod
+
+reciprocal_sqrt_alphas
+
+sigma
+
 同时，diffusion模型有三种不同的预测方式，一种是预测所加t步的噪声，一种是预测 $x_{0}$ 的原始图像， 还有一种是预测得分（梯度），主要使用的是前两种。
 ## Denoiser模块
+经典UNet的结构，狗狗应该熟悉
+除此之外输入还包括了时间t, t会被送入PositionEmbedding创造出TimeEmbedding, 然后该TimeEmbedding会与TextEmbedding相加(数值相加或者直接拼接)
 
 
