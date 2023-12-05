@@ -58,17 +58,20 @@ alphas： $1-\beta$
 
 alphas_cumprod： $\bar{\alpha_{t}}$
 
-sqrt_alphas_cumprod
+sqrt_alphas_cumprod: $\sqrt{\bar{\alpha}_{t}}$
 
-sqrt_one_minus_alphas_cumprod
+sqrt_one_minus_alphas_cumprod: $\sqrt{1-\bar{\alpha}_{t}}$
 
-reciprocal_sqrt_alphas
+reciprocal_sqrt_alphas: $\frac{1}{\alpha_{t}}$
 
-sigma
+
+这个模块里的主要函数为: 创建线性的不同时间t,加噪函数，采样函数，和计算loss函数
 
 同时，diffusion模型有三种不同的预测方式，一种是预测所加t步的噪声，一种是预测 $x_{0}$ 的原始图像， 还有一种是预测得分（梯度），主要使用的是前两种。
 ## Denoiser模块
 经典UNet的结构，狗狗应该熟悉
+
 除此之外输入还包括了时间t, t会被送入PositionEmbedding创造出TimeEmbedding, 然后该TimeEmbedding会与TextEmbedding相加(数值相加或者直接拼接)
 
+这里的代码训练比较慢，推荐狗狗看这里的代码，更加轻量化：https://learn.deeplearning.ai/diffusion-models/lesson/1/introduction
 
